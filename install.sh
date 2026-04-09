@@ -304,9 +304,20 @@ collect_config() {
 
     # Repo
     while [[ -z "${GITHUB_REPO}" ]]; do
-        ask "Repo z vault'em (format ${BOLD}user/repo${NC}): "
+        ask "Repo z vault'em (${BOLD}user/repo${NC} lub pełny URL): "
         read -r GITHUB_REPO
     done
+
+    # Normalizacja — akceptuj https URL, git@ SSH, z .git lub bez
+    GITHUB_REPO=$(echo "${GITHUB_REPO}" | sed -E 's|^https?://github\.com/||; s|^git@github\.com:||; s|\.git/?$||; s|/$||')
+
+    # Walidacja formatu
+    if [[ ! "${GITHUB_REPO}" =~ ^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$ ]]; then
+        err "Nieprawidłowy format repo po normalizacji: ${GITHUB_REPO}"
+        err "Oczekiwany format: user/repo (np. AIBiz-Automatyzacje/obsidian-vault-kacper)"
+        exit 1
+    fi
+    log "Repo: ${GITHUB_REPO}"
 
     # Walidacja PAT
     log "Weryfikuję token na GitHub..."
