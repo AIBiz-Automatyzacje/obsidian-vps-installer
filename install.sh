@@ -14,20 +14,22 @@
 set -euo pipefail
 
 # ---------- Kolory i helpery ----------
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# ANSI-C quoting ($'...') — stringi zawierają faktyczne bajty ESC,
+# dzięki czemu działają zarówno w echo jak i w cat << EOF (heredoc).
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+YELLOW=$'\033[1;33m'
+BLUE=$'\033[0;34m'
+CYAN=$'\033[0;36m'
+BOLD=$'\033[1m'
+NC=$'\033[0m'
 
-log()   { echo -e "${BLUE}[INFO]${NC} $*"; }
-ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
-err()   { echo -e "${RED}[ERR]${NC} $*" >&2; }
-step()  { echo -e "\n${BOLD}${CYAN}==> $*${NC}"; }
-ask()   { echo -en "${BOLD}${YELLOW}?${NC} $*"; }
+log()   { printf '%s[INFO]%s %s\n' "${BLUE}" "${NC}" "$*"; }
+ok()    { printf '%s[OK]%s %s\n' "${GREEN}" "${NC}" "$*"; }
+warn()  { printf '%s[WARN]%s %s\n' "${YELLOW}" "${NC}" "$*"; }
+err()   { printf '%s[ERR]%s %s\n' "${RED}" "${NC}" "$*" >&2; }
+step()  { printf '\n%s%s==> %s%s\n' "${BOLD}" "${CYAN}" "$*" "${NC}"; }
+ask()   { printf '%s%s?%s %s' "${BOLD}" "${YELLOW}" "${NC}" "$*"; }
 
 # ---------- Stałe ----------
 CLAUDE_USER="claude"
@@ -594,9 +596,12 @@ verify_installation() {
     su - "${CLAUDE_USER}" -c "echo '# Install test' > ${test_file}"
 
     # Poll przez 30s czy ob widzi zmianę (sprawdzamy logi service'u)
+    # Szerokie słowa kluczowe — ob loguje rzeczy typu "Connecting", "Fully synced",
+    # "Detecting changes", "Upload", "Download", "Sync complete"
     local found=0
     for i in {1..15}; do
-        if journalctl -u "${SERVICE_NAME}" --since "30 seconds ago" --no-pager 2>/dev/null | grep -qiE "(synced|upload|detected)"; then
+        if journalctl -u "${SERVICE_NAME}" --since "1 minute ago" --no-pager 2>/dev/null | \
+           grep -qiE "(sync|connect|detect|upload|download|change)"; then
             found=1
             break
         fi
@@ -604,9 +609,10 @@ verify_installation() {
     done
 
     if [[ ${found} -eq 1 ]]; then
-        ok "Sync wykrył zmianę w logach"
+        ok "Sync aktywny (znaleziono aktywność w logach)"
     else
-        warn "Nie widzę potwierdzenia sync'a w logach — może być OK, sprawdź ręcznie"
+        warn "Nie widzę aktywności sync'a w logach — sprawdź ręcznie:"
+        warn "  journalctl -u ${SERVICE_NAME} -n 30 --no-pager"
     fi
 
     # Cleanup pliku testowego
