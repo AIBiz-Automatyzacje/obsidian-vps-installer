@@ -580,28 +580,25 @@ verify_installation() {
     # Status service'u
     log "Sprawdzam status service'u..."
     sleep 2
-    if systemctl is-active --quiet "${SERVICE_NAME}"; then
-        ok "Service ${SERVICE_NAME} jest aktywny"
-    else
+    if ! systemctl is-active --quiet "${SERVICE_NAME}"; then
         err "Service ${SERVICE_NAME} nie działa"
         echo
         warn "Ostatnie 20 linii logów:"
         journalctl -u "${SERVICE_NAME}" -n 20 --no-pager || true
         exit 1
     fi
+    ok "Service ${SERVICE_NAME} jest aktywny"
 
-    # Test pliku
-    log "Tworzę plik testowy i sprawdzam czy trafi do sync'a..."
-    local test_file="${VAULT_PATH}/_install-test-$(date +%s).md"
-    su - "${CLAUDE_USER}" -c "echo '# Install test' > ${test_file}"
-
-    # Poll przez 30s czy ob widzi zmianę (sprawdzamy logi service'u)
-    # Szerokie słowa kluczowe — ob loguje rzeczy typu "Connecting", "Fully synced",
-    # "Detecting changes", "Upload", "Download", "Sync complete"
+    # Czekamy aż ob faktycznie wykona pierwszy sync (max 90s).
+    # Pierwszy "Fully synced" przychodzi po handshake + ewentualnym pobraniu plików —
+    # na świeżym vault'cie może to trwać 30-60s.
+    log "Czekam aż ob wykona pierwszy sync (do 90s)..."
     local found=0
-    for i in {1..15}; do
-        if journalctl -u "${SERVICE_NAME}" --since "1 minute ago" --no-pager 2>/dev/null | \
-           grep -qiE "(sync|connect|detect|upload|download|change)"; then
+    local last_line=""
+    for i in {1..45}; do
+        last_line=$(journalctl -u "${SERVICE_NAME}" -n 1 --no-pager -o cat 2>/dev/null || true)
+        if [[ -n "${last_line}" ]] && \
+           echo "${last_line}" | grep -qiE "(fully synced|downloaded|uploaded|accepted)"; then
             found=1
             break
         fi
@@ -609,14 +606,15 @@ verify_installation() {
     done
 
     if [[ ${found} -eq 1 ]]; then
-        ok "Sync aktywny (znaleziono aktywność w logach)"
+        ok "Sync działa — ostatni log: \"${last_line##*: }\""
     else
-        warn "Nie widzę aktywności sync'a w logach — sprawdź ręcznie:"
-        warn "  journalctl -u ${SERVICE_NAME} -n 30 --no-pager"
+        warn "Sync nie raportuje aktywności po 90s"
+        echo
+        warn "Ostatnie 10 linii logów — sprawdź czy wygląda OK:"
+        journalctl -u "${SERVICE_NAME}" -n 10 --no-pager | sed 's/^/    /'
+        echo
+        warn "Pełne logi: journalctl -u ${SERVICE_NAME} -f"
     fi
-
-    # Cleanup pliku testowego
-    su - "${CLAUDE_USER}" -c "rm -f ${test_file}"
 }
 
 # =============================================================================
