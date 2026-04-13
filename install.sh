@@ -288,6 +288,12 @@ collect_config() {
     log "Zaraz zapytam o kilka rzeczy. Potem skrypt sam poleci — idź po kawę ☕"
     log "Hasło do Obsidian i hasło e2e ${BOLD}NIE${NC} są tu potrzebne — wpiszesz je później."
     echo
+    log "Upewnij się, że masz przygotowany ${BOLD}GitHub Personal Access Token${NC} (fine-grained)."
+    log "Jeśli nie masz — stwórz go teraz:"
+    log "  GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate"
+    log "  Repository access: Only select repositories → wybierz repo z .claude"
+    log "  Permissions → Repository permissions → Contents: ${BOLD}Read-only${NC}"
+    echo
 
     # Email
     while [[ -z "${OBSIDIAN_EMAIL}" ]]; do
@@ -303,8 +309,7 @@ collect_config() {
 
     # GitHub PAT
     echo
-    log "Potrzebuję GitHub Personal Access Token (fine-grained, read-only do repo z .claude)"
-    log "Jak stworzyć: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained"
+    log "Potrzebuję GitHub Personal Access Token (instrukcja wyżej ☝️)"
     while [[ -z "${GITHUB_PAT}" ]]; do
         ask "GitHub PAT (ukryte): "
         read -rs GITHUB_PAT
