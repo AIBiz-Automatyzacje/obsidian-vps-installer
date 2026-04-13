@@ -145,6 +145,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ---------- Stdin fix for curl|bash ----------
+# When piped (curl ... | bash), stdin is the script itself, not the terminal.
+# Redirect stdin to /dev/tty so interactive reads work correctly.
+if [[ ! -t 0 ]]; then
+    exec < /dev/tty
+fi
+
 # =============================================================================
 # PRE-FLIGHT CHECKS
 # =============================================================================
