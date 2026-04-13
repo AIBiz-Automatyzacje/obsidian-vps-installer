@@ -145,12 +145,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# ---------- Stdin fix for curl|bash ----------
-# When piped (curl ... | bash), stdin is the script itself, not the terminal.
-# Redirect stdin to /dev/tty so interactive reads work correctly.
-if [[ ! -t 0 ]]; then
-    exec < /dev/tty
-fi
 
 # =============================================================================
 # PRE-FLIGHT CHECKS
@@ -208,7 +202,7 @@ detect_existing() {
         echo
         warn "Wykryto istniejącą instalację."
         ask "Co robimy? [R]eset (usuń i od nowa) / [E]xit: "
-        read -r choice
+        read -r c < /dev/ttyhoice < /dev/tty
         case "${choice,,}" in
             r|reset) MODE="reset"; do_reset; MODE="install"; log "Po resecie — kontynuuję instalację..." ;;
             *) log "Przerywam. Odpal z --reset gdy będziesz gotowy."; exit 0 ;;
@@ -231,7 +225,7 @@ do_reset() {
     warn "  - Vault-git ${VAULT_GIT_PATH}"
     echo
     ask "Na pewno? Wpisz ${BOLD}TAK${NC} żeby potwierdzić: "
-    read -r confirm
+    read -r confirm < /dev/tty
 
     if [[ "${confirm}" != "TAK" ]]; then
         log "Anulowano."
@@ -298,13 +292,13 @@ collect_config() {
     # Email
     while [[ -z "${OBSIDIAN_EMAIL}" ]]; do
         ask "Email do konta Obsidian: "
-        read -r OBSIDIAN_EMAIL
+        read -r OBSIDIAN_EMAIL < /dev/tty
     done
 
     # Nazwa vault'a
     while [[ -z "${VAULT_NAME}" ]]; do
         ask "Nazwa vault'a w Obsidian Sync (Settings > Sync): "
-        read -r VAULT_NAME
+        read -r VAULT_NAME < /dev/tty
     done
 
     # GitHub PAT
@@ -312,14 +306,14 @@ collect_config() {
     log "Potrzebuję GitHub Personal Access Token (instrukcja wyżej ☝️)"
     while [[ -z "${GITHUB_PAT}" ]]; do
         ask "GitHub PAT (ukryte): "
-        read -rs GITHUB_PAT
+        read -rs GITHUB_PAT < /dev/tty
         echo
     done
 
     # Repo
     while [[ -z "${GITHUB_REPO}" ]]; do
         ask "Repo z vault'em (${BOLD}user/repo${NC} lub pełny URL): "
-        read -r GITHUB_REPO
+        read -r GITHUB_REPO < /dev/tty
     done
 
     # Normalizacja — akceptuj https URL, git@ SSH, z .git lub bez
@@ -350,7 +344,7 @@ collect_config() {
     # Device name
     local default_device="vps-$(hostname)"
     ask "Nazwa urządzenia w Obsidian Sync [${default_device}]: "
-    read -r DEVICE_NAME
+    read -r DEVICE_NAME < /dev/tty
     DEVICE_NAME="${DEVICE_NAME:-${default_device}}"
 
     # Podsumowanie
@@ -363,7 +357,7 @@ collect_config() {
     echo "  Device:      ${DEVICE_NAME}"
     echo
     ask "Kontynuujemy? [T/n]: "
-    read -r confirm
+    read -r confirm < /dev/tty
     if [[ "${confirm,,}" == "n" ]]; then
         log "Anulowano."
         exit 0
@@ -469,7 +463,7 @@ Po udanym logowaniu ${BOLD}wróć tu${NC} i naciśnij ENTER.
 
 EOF
     ask "Gotowe? Naciśnij ENTER: "
-    read -r
+    read -r < /dev/tty
     ok "Kontynuuję..."
 }
 
@@ -495,7 +489,7 @@ Wróć tu i naciśnij ENTER.
 
 EOF
     ask "Gotowe? Naciśnij ENTER: "
-    read -r
+    read -r < /dev/tty
 
     # Weryfikacja że sync-setup zadziałał
     log "Sprawdzam konfigurację vault'a..."
@@ -504,7 +498,7 @@ EOF
     else
         err "ob sync-status nie działa — setup nieudany?"
         ask "Kontynuować mimo to? [t/N]: "
-        read -r c
+        read -r c < /dev/tty
         [[ "${c,,}" == "t" ]] || exit 1
     fi
 }
